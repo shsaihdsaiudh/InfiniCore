@@ -20,6 +20,10 @@ __device__ __forceinline__ float fusedMoeMxfp4Activate(
         const float bounded_up = linear_beta * tanhf(up / linear_beta);
         return situ_gate * bounded_up;
     }
+    if (activation == INFINIOP_FUSED_MOE_ACT_SWIGLU_LIMIT_10) {
+        gate = fminf(gate, 10.0f);
+        up = fmaxf(-10.0f, fminf(up, 10.0f));
+    }
     return gate / (1.0f + expf(-gate)) * up;
 }
 

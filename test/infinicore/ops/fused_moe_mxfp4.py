@@ -44,6 +44,19 @@ def situ(gate, up):
     return situ_gate * bounded_up
 
 
+def assert_v4_clamp_is_exercised(input_data, ids, w13_packed, w13_scale):
+    w13 = dequantize_mxfp4(w13_packed, w13_scale)
+    for token in range(input_data.shape[0]):
+        for expert in ids[token]:
+            expert = int(expert)
+            if expert < 0:
+                continue
+            gate, up = F.linear(input_data[token], w13[expert]).chunk(2, dim=-1)
+            if bool((gate > 10.0).any() or (up.abs() > 10.0).any()):
+                return
+    raise AssertionError("V4 clamped-SwiGLU test data did not exercise the limit")
+
+
 def torch_fused_moe_mxfp4(
     input,
     selected_experts,
@@ -64,7 +77,12 @@ def torch_fused_moe_mxfp4(
                 continue
             gate_up = F.linear(input[token].float(), w13[expert])
             gate, up = gate_up.chunk(2, dim=-1)
-            activated = situ(gate, up) if activation == 2 else F.silu(gate) * up
+            if activation == 2:
+                activated = situ(gate, up)
+            elif activation == 3:
+                activated = F.silu(gate.clamp(max=10.0)) * up.clamp(-10.0, 10.0)
+            else:
+                activated = F.silu(gate) * up
             activated = activated.to(input.dtype).float()
             output[token] += (
                 F.linear(activated, w2[expert]) * routing_weights[token, route]
@@ -78,10 +96,12 @@ def make_cases():
         (1, 64, 64, 8, 3, 2, "decode SiTU"),
         (5, 64, 96, 6, 2, 1, "prefill SwiGLU"),
         (7, 128, 64, 5, 2, 2, "prefill SiTU"),
+        (3, 64, 64, 4, 2, 3, "prefill V4-clamped SwiGLU"),
     ]
     cases = []
     for T, H, I, E, topk, activation, description in configs:
-        input_data = torch.randn((T, H), generator=generator) * 0.2
+        input_scale = 1.0 if activation == 3 else 0.2
+        input_data = torch.randn((T, H), generator=generator) * input_scale
         ids = torch.randint(0, E, (T, topk), generator=generator, dtype=torch.int32)
         if T > 1:
             ids[-1, -1] = -1
@@ -99,6 +119,10 @@ def make_cases():
         w2_scale = torch.randint(
             123, 129, (E, H, I // 32), generator=generator, dtype=torch.uint8
         )
+        if activation == 3:
+            assert_v4_clamp_is_exercised(
+                input_data, ids, w13_packed, w13_scale
+            )
         for dtype in _DTYPES:
             tensors = [
                 (input_data, dtype, "input"),

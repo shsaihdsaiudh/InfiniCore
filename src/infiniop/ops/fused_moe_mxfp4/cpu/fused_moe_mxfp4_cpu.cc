@@ -3,6 +3,7 @@
 #include "../../../../utils/custom_types.h"
 #include "../../../devices/cpu/cpu_handle.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 
@@ -41,6 +42,10 @@ float activate(float gate, float up, infiniopFusedMoeActivation_t activation) {
         const float situ_gate = beta * std::tanh(gate / beta) / (1.0f + std::exp(-gate));
         const float bounded_up = linear_beta * std::tanh(up / linear_beta);
         return situ_gate * bounded_up;
+    }
+    if (activation == INFINIOP_FUSED_MOE_ACT_SWIGLU_LIMIT_10) {
+        gate = std::min(gate, 10.0f);
+        up = std::clamp(up, -10.0f, 10.0f);
     }
     return gate / (1.0f + std::exp(-gate)) * up;
 }

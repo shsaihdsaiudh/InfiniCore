@@ -38,7 +38,8 @@ public:
                             && w2_packed_desc != nullptr && w2_scale_desc != nullptr,
                         INFINI_STATUS_NULL_POINTER);
         CHECK_OR_RETURN(activation == INFINIOP_FUSED_MOE_ACT_SWIGLU
-                            || activation == INFINIOP_FUSED_MOE_ACT_SITUGLU,
+                            || activation == INFINIOP_FUSED_MOE_ACT_SITUGLU
+                            || activation == INFINIOP_FUSED_MOE_ACT_SWIGLU_LIMIT_10,
                         INFINI_STATUS_BAD_PARAM);
 
         const auto dtype = input_desc->dtype();

@@ -12,6 +12,7 @@ enum class FusedMoeActivation : int {
     Silu = 0,
     Swiglu = 1,
     Situglu = 2,
+    SwigluLimit10 = 3,
 };
 
 INFINICORE_GRAPH_OP_CLASS(FusedMoe,
