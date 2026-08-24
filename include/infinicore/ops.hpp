@@ -73,6 +73,7 @@
 #include "ops/recurrent_gated_delta_rule.hpp"
 #include "ops/relu.hpp"
 #include "ops/rms_norm.hpp"
+#include "ops/rms_norm_rope.hpp"
 #include "ops/rope.hpp"
 #include "ops/rot.hpp"
 #include "ops/rotary_embedding.hpp"
