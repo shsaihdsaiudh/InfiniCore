@@ -1,21 +1,22 @@
-import torch
 import ctypes
 from ctypes import c_uint64
+
+import torch
 from libinfiniop import (
     LIBINFINIOP,
-    TestTensor,
-    get_test_devices,
-    check_error,
-    test_operator,
-    get_args,
-    debug,
-    get_tolerance,
-    profile_operation,
-    TestWorkspace,
+    InfiniDeviceNames,
     InfiniDtype,
     InfiniDtypeNames,
-    InfiniDeviceNames,
+    TestTensor,
+    TestWorkspace,
+    check_error,
+    debug,
+    get_args,
+    get_test_devices,
+    get_tolerance,
     infiniopOperatorDescriptor_t,
+    profile_operation,
+    test_operator,
 )
 
 # ==============================================================================
@@ -49,6 +50,21 @@ NUM_ITERATIONS = 1000
 
 # PyTorch implementation for matrix multiplication
 def gemm(d, _c, beta, _a, _b, alpha):
+    # Match the kernel's FP32 accumulation instead of platform-specific CPU GEMM.
+    if _a.device.type == "cpu" and _a.dtype in (torch.float16, torch.bfloat16):
+        if _c.ndim == 2:
+            result = torch.addmm(
+                _c.float(), _a.float(), _b.float(), beta=beta, alpha=alpha
+            )
+        elif _c.ndim == 3:
+            result = torch.baddbmm(
+                _c.float(), _a.float(), _b.float(), beta=beta, alpha=alpha
+            )
+        else:
+            raise ValueError(f"Unsupported tensor rank for GEMM: {_c.ndim}")
+        d.copy_(result)
+        return
+
     try:
         if _c.ndim == 2:
             torch.addmm(_c, _a, _b, beta=beta, alpha=alpha, out=d)
